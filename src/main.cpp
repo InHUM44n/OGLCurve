@@ -36,13 +36,13 @@ GLuint loadShaders(const char* vertexPath, const char* fragmentPath)
         vertexCode = vShaderStream.str();
         fragmentCode = fShaderStream.str();
     }
-    catch (std::ifstream::failure &e)
+    catch (std::ifstream::failure& e)
     {
         std::cerr << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ: " << e.what() << std::endl;
         return 0;
     }
-    const char *vShaderCode = vertexCode.c_str();
-    const char *fShaderCode = fragmentCode.c_str();
+    const char* vShaderCode = vertexCode.c_str();
+    const char* fShaderCode = fragmentCode.c_str();
 
     // Compile shaders
     GLuint vertex, fragment;
@@ -58,7 +58,7 @@ GLuint loadShaders(const char* vertexPath, const char* fragmentPath)
     {
         glGetShaderInfoLog(vertex, 512, NULL, infoLog);
         std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
-                  << infoLog << std::endl;
+            << infoLog << std::endl;
         return 0;
     }
 
@@ -71,7 +71,7 @@ GLuint loadShaders(const char* vertexPath, const char* fragmentPath)
     {
         glGetShaderInfoLog(fragment, 512, NULL, infoLog);
         std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
-                  << infoLog << std::endl;
+            << infoLog << std::endl;
         glDeleteShader(vertex); // Clean up vertex shader
         return 0;
     }
@@ -86,7 +86,7 @@ GLuint loadShaders(const char* vertexPath, const char* fragmentPath)
     {
         glGetProgramInfoLog(ID, 512, NULL, infoLog);
         std::cerr << "ERROR::PROGRAM::LINKING_FAILED\n"
-                  << infoLog << std::endl;
+            << infoLog << std::endl;
         glDeleteShader(vertex);
         glDeleteShader(fragment);
         return 0;
@@ -102,7 +102,7 @@ GLuint loadShaders(const char* vertexPath, const char* fragmentPath)
 // --- Simple Orthographic Projection ---
 // Creates a matrix to map coordinates from world space (-w/2 to w/2, -h/2 to h/2)
 // to clip space (-1 to 1)
-void createOrthoProjection(float *matrix, float left, float right, float bottom, float top, float nearVal, float farVal)
+void createOrthoProjection(float* matrix, float left, float right, float bottom, float top, float nearVal, float farVal)
 {
     matrix[0] = 2.0f / (right - left);
     matrix[4] = 0.0f;
@@ -123,62 +123,46 @@ void createOrthoProjection(float *matrix, float left, float right, float bottom,
 }
 
 // Callback function for window resize
-void framebuffer_size_callback(GLFWwindow *window, int width, int height)
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
 }
 
 // Variables to change the points later
+curves::CurveType type;
 int clicks;
-std::vector<float> p0;
-std::vector<float> p1;
-std::vector<float> p2;
-std::vector<float> p3;
+std::vector<std::vector<float>*> points;
+bool mouseHeld;
 
 // Responsible for mouse clicks
-void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    // only if left click has just been pressed down
-    // this will set the points to wherever the user has clicked.
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
-        // p will be a pointer for the point we are setting
-        // points are changed in ascending order in a cycle.
-        std::vector<float>* p = nullptr;
-        switch (clicks)
+        if (action == GLFW_PRESS)
         {
-        case 0:
-            p = &p0;
-            break;
-        case 1:
-            p = &p1;
-            break;
-        case 2:
-            p = &p2;
-            break;
-        case 3:
-            p = &p3;
-            clicks = -1;
-            break;
-        default:
-            break;
+            mouseHeld = true;
         }
-        double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
-        int xwindow, ywindow;
-        glfwGetWindowSize(window, &xwindow, &ywindow);
-        xpos = ((xpos / xwindow) - 0.5) * 2;
-        ypos = -((ypos / ywindow) - 0.5) * 2;
-        (*p)[0] = xpos;
-        (*p)[1] = ypos;
-        clicks++;
-#ifdef DEBUG // output to the console
-        std::string log_info = std::to_string((*p)[0]);
-        log_info.append(" ");
-        log_info.append(std::to_string((*p)[1]));
-        log_info.append("\n");
-        std::fprintf(stdout, log_info.c_str());
+        else if (action == GLFW_RELEASE)
+        {
+            mouseHeld = false;
+
+#ifdef DEBUG// print coordinates for current point on screen
+            std::vector<float>* p = points.at(clicks);
+            std::string log_info = "P" + std::to_string(clicks) + ": " + std::to_string((*p)[0]) + " " + std::to_string((*p)[1]) + "\n";
+            std::fprintf(stdout, log_info.c_str());
 #endif
+            // increment clciks to edit the next Point
+            switch (type)
+            {
+            case curves::CurveType::CubicBezier:
+                clicks = (clicks + 1) % 4;
+                break;
+            case curves::CurveType::Lagrange:
+                clicks++;
+                break;
+            }
+        }
     }
 }
 
@@ -195,7 +179,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // --- Create Window ---
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "OGLCurve", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "OGLCurve", NULL, NULL);
     if (window == NULL)
     {
         std::cerr << "Failed to create GLFW window" << std::endl;
@@ -228,12 +212,14 @@ int main()
     // coordinates centered around (0,0).
     // Each pair is an (x, y) point.
     clicks = 0;
-    p0 = {-0.8f, -0.5f};
-    p1 = {-0.4f, 0.5f};
-    p2 = {0.0f, -0.5f};
-    p3 = {0.4f, 0.5f};
-    std::vector<std::vector<float>*> points = {&p0, &p1, &p2, &p3};
-    
+    // default points (Cubic Bezier)
+    type = curves::CurveType::CubicBezier;
+    std::vector<float> p0 = { -0.8f, -0.5f };
+    std::vector<float> p1 = { -0.4f, 0.5f };
+    std::vector<float> p2 = { 0.0f, -0.5f };
+    std::vector<float> p3 = { 0.4f, 0.5f };
+    points = { &p0, &p1, &p2, &p3 };
+
     // calculate line
     std::vector<float> line_coords = curves::genCubicBezierCurve(100, p0, p1, p2, p3);
     // add the point markers
@@ -261,7 +247,7 @@ int main()
     // Normalize? -> GL_FALSE
     // Stride (bytes between vertices) -> 2 * sizeof(float)
     // Offset (bytes from start) -> 0
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0); // Enable the vertex attribute (location 0)
 
     // Unbind VBO and VAO (good practice, prevents accidental modification)
@@ -285,6 +271,23 @@ int main()
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
 
+        if (mouseHeld)
+        {
+            std::vector<float>* p = points.at(clicks);
+            // store x and y position of mouse cursor
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+            // store x and y size of window
+            int xwindow, ywindow;
+            glfwGetWindowSize(window, &xwindow, &ywindow);
+            // adjust position for the projection [-1 : 1]
+            xpos = ((xpos / xwindow) - 0.5) * 2;
+            ypos = -((ypos / ywindow) - 0.5) * 2;
+            // override the values of the Point vector
+            (*p)[0] = xpos;
+            (*p)[1] = ypos;
+        }
+
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Set background color
         glClear(GL_COLOR_BUFFER_BIT);         // Clear framebuffer
 
@@ -297,21 +300,26 @@ int main()
 
         // Bind the VAO (which contains the VBO configuration)
         glBindVertexArray(VAO);
-        
+
         // Update the points for the line and crosses
-        line_coords = curves::genCubicBezierCurve(100, p0, p1, p2, p3);
+        switch (type)
+        {
+            case curves::CurveType::CubicBezier:
+                line_coords = curves::genCubicBezierCurve(100, p0, p1, p2, p3);
+                break;
+        }
         for (float cross_coordinate : curves::genCrosses(points))
             line_coords.push_back(cross_coordinate);
         glfwSetMouseButtonCallback(window, mouse_button_callback);
-        
+
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, line_coords.size() * sizeof(float), line_coords.data());
 
         // Draw the lines!
         // GL_LINE_STRIP connects vertices in a line
-        glDrawArrays(GL_LINE_STRIP, 0, numVertices-64);
+        glDrawArrays(GL_LINE_STRIP, 0, numVertices - 64);
         // GL_LINES draws the crosses (like cross-strokes)
-        glDrawArrays(GL_LINES, numVertices-64, 64);
+        glDrawArrays(GL_LINES, numVertices - 64, 64);
 
         // Unbind VAO
         glBindVertexArray(0);
