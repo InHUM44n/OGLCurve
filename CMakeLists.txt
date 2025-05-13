@@ -15,7 +15,12 @@ add_library(glad STATIC src/glad.c)
 target_include_directories(glad PUBLIC include)
 
 # --- Add Executable ---
-add_executable(opengl_line_app src/main.cpp)
+add_executable(
+    opengl_line_app
+    src/main.cpp
+    src/curve_program.cpp
+    src/curves.cpp
+)
 
 # Add -DDEBUG only in Debug mode
 target_compile_definitions(opengl_line_app PRIVATE

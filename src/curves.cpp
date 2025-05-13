@@ -1,14 +1,8 @@
-#include <vector>
-#include <cmath>
+#include "curves.hpp"
 
 namespace curves
 {
-    enum CurveType
-    {
-        CubicBezier,
-        Lagrange
-    };
-    std::vector<float> genCubicBezierCurve(int numPoints, const std::vector<float> &p0, const std::vector<float> &p1, const std::vector<float> &p2, const std::vector<float> &p3)
+    std::vector<float> genCubicBezierCurve(int numPoints, const std::vector<float>& p0, const std::vector<float>& p1, const std::vector<float>& p2, const std::vector<float>& p3)
     {
         std::vector<float> points = p0;
         for (int i = 1; i <= numPoints; i++)
@@ -19,24 +13,29 @@ namespace curves
         }
         return points;
     }
-    std::vector<float> genCrosses(const std::vector<std::vector<float>*>& points)
+    std::vector<float> genCrosses(const std::vector<std::vector<float>>& points)
     {
         std::vector<float> returnPoints;
-            for (std::vector<float>* p : points)
+        for (std::vector<float> p : points)
         {
             // create coordinates for cross-stroke drawing
             for (int i = 0; i < points.size(); i++)
             {
-                returnPoints.push_back((*p)[0] - 0.02);
-                returnPoints.push_back((*p)[1] - 0.02);
-                returnPoints.push_back((*p)[0] + 0.02);
-                returnPoints.push_back((*p)[1] + 0.02);
-                returnPoints.push_back((*p)[0] - 0.02);
-                returnPoints.push_back((*p)[1] + 0.02);
-                returnPoints.push_back((*p)[0] + 0.02);
-                returnPoints.push_back((*p)[1] - 0.02);
+                returnPoints.push_back((p)[0] - 0.02);
+                returnPoints.push_back((p)[1] - 0.02);
+                returnPoints.push_back((p)[0] + 0.02);
+                returnPoints.push_back((p)[1] + 0.02);
+                returnPoints.push_back((p)[0] - 0.02);
+                returnPoints.push_back((p)[1] + 0.02);
+                returnPoints.push_back((p)[0] + 0.02);
+                returnPoints.push_back((p)[1] - 0.02);
             }
         }
         return returnPoints;
+    }
+    //temporary
+    std::vector<float> genLagrangeCurve(int numPoints, const std::vector<std::vector<float>>& points)
+    {
+        return std::vector<float>();
     }
 }
